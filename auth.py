@@ -62,3 +62,11 @@ def login_user(username: str, password: str):
     else:
         print("Credenciais inválidas!")
         return False
+    
+def get_user_public_key(username):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT public_key FROM users WHERE username = ?", (username,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
