@@ -42,7 +42,6 @@ if __name__ == "__main__":
                 else:
                     print("Nenhum usuário assinou o documento")
             elif choice == "5":
-                # Exibe as chaves e testa o par de chaves do usuário informado
                 user = input("Informe o nome do usuário para debug: ")
                 debug_user_keys(user)
                 test_key_pair_for_user(user)

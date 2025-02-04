@@ -1,17 +1,15 @@
 import sqlite3
 import hashlib
+import os
 from db import init_db
-from config import db_path
+from config import db_path, keys_dir
 #from crypto_utils import generate_rsa
-from signature import generate_rsa_keys
+from crypto_utils import generate_rsa_keys
 
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 def register_user(username, password):
-    """
-    Registra um novo usuário com um par de chaves RSA
-    """
     if not username or not password:
         print("Usuário e senha são obrigatórios!")
         return False
@@ -20,19 +18,29 @@ def register_user(username, password):
     cursor = conn.cursor()
     
     try:
-        # Verifica se o usuário já existe
         cursor.execute("SELECT username FROM users WHERE username = ?", (username,))
         if cursor.fetchone():
             print("Usuário já existe!")
             return False
-            
-        # Gera o par de chaves RSA
+        
         public_key = generate_rsa_keys(username)
         
-        # Hash da senha
+        print(f"Verificando geração de chave para {username}...")
+        private_key_path = os.path.join(keys_dir, f"{username}_private.pem")
+        public_key_path = os.path.join(keys_dir, f"{username}_public.pem")
+
+        if os.path.exists(private_key_path):
+            print(f"Chave privada criada: {private_key_path}")
+        else:
+            print("Erro: Chave privada não foi criada!")
+
+        if os.path.exists(public_key_path):
+            print(f"Chave pública criada: {public_key_path}")
+        else:
+            print("Erro: Chave pública não foi criada!")
+
         password_hash = hashlib.sha256(password.encode()).hexdigest()
         
-        # Insere o usuário
         cursor.execute(
             "INSERT INTO users (username, password_hash, public_key) VALUES (?, ?, ?)",
             (username, password_hash, public_key)

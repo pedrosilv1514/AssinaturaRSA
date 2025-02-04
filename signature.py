@@ -37,30 +37,20 @@ def rsa_decrypt(cipher, exp, n):
     
     return full_decrypted[-32:]
 def get_original_file_data(lines):
-    """
-    Considera que o conteúdo original do arquivo é tudo antes da primeira ocorrência do marcador,
-    preservando as quebras de linha originais.
-    """
     content = []
     for line in lines:
         if line.strip() == "---SIGNATURE---":
             break
         content.append(line)
-    
-    # Usa rstrip para remover apenas o whitespace no final, mantendo newlines internos
+
     result = "".join(content).rstrip('\n') + "\n"
     return result.encode('utf-8')
 
 def sign_file(username: str, file_path: str):
-    """
-    Assina um arquivo usando RSA e SHA3-256
-    """
-    # Verifica se o arquivo existe
     if not os.path.exists(file_path):
         print(f"Erro: Arquivo {file_path} não encontrado!")
         return False
-
-    # Lê o conteúdo atual do arquivo
+    
     try:
         with open(file_path, "r") as file:
             lines = file.readlines()
@@ -68,17 +58,14 @@ def sign_file(username: str, file_path: str):
         print("Erro ao ler o arquivo:", e)
         return False
 
-    # Obtém o conteúdo original
     original_data = get_original_file_data(lines)
-    
-    # Verifica se há conteúdo para assinar
+
     if not original_data.strip():
         print("Erro: O arquivo está vazio ou não contém conteúdo antes da assinatura!")
         return False
 
     print(f"[DEBUG] Conteúdo a ser assinado: {original_data}")
-    
-    # Verifica se o usuário já assinou o documento
+
     i = 0
     while i < len(lines):
         if lines[i].strip() == "---SIGNATURE---":
@@ -89,13 +76,11 @@ def sign_file(username: str, file_path: str):
         else:
             i += 1
 
-    # Lê a chave privada do usuário
     private_key_path = os.path.join(keys_dir, f"{username}_private.pem")
     if not os.path.exists(private_key_path):
         print("Erro: Chave privada não encontrada!")
         return False
 
-    # Lê as chaves do usuário
     with open(private_key_path, "r") as priv_file:
         key_data = priv_file.read().strip()
         parts = [p for p in key_data.split(',') if p.strip() != '']
@@ -104,7 +89,6 @@ def sign_file(username: str, file_path: str):
             return False
         d, n = map(int, parts[:2])
 
-    # Calcula o hash do conteúdo
     hash_bytes = hashlib.sha3_256(original_data).digest()
     print(f"[DEBUG] Hash original (hex): {hash_bytes.hex()}")
     print(f"[DEBUG] Tamanho do hash: {len(hash_bytes)} bytes")
@@ -112,8 +96,7 @@ def sign_file(username: str, file_path: str):
     if len(hash_bytes) != 32:
         print(f"Erro: Hash tem tamanho inesperado: {len(hash_bytes)} bytes")
         return False
-
-    # Assina o hash
+    
     try:
         signature = rsa_encrypt(hash_bytes, d, n)
         signature_b64 = base64.b64encode(signature).decode()
@@ -121,13 +104,9 @@ def sign_file(username: str, file_path: str):
         print(f"Erro ao gerar assinatura: {e}")
         return False
 
-    # Apende a assinatura ao arquivo
     try:
-        # Save signature to file
         with open(file_path, "a") as file:
             file.write(f"\n---SIGNATURE---\n{username}\n{signature_b64}\n")
-
-        # Save signature to .sig file
         with open(file_path + ".sig", "wb") as f:
             f.write(base64.b64decode(signature_b64))
         
@@ -145,10 +124,7 @@ def verify_signature(file_path: str, username: str):
         print(f"Erro ao ler o arquivo: {e}")
         return False
 
-    # Obtém o conteúdo original
     original_data = get_original_file_data(lines)
-
-    # Busca a assinatura do usuário
     found_block = None
     i = 0
     while i < len(lines):
@@ -184,17 +160,12 @@ def verify_signature(file_path: str, username: str):
     except Exception as e:
         print(f"Erro ao buscar chave pública: {e}")
         return False
-
-    # Calcula o hash do conteúdo original
+    
     hash_bytes = hashlib.sha3_256(original_data).digest()
 
     try:
         signature = base64.b64decode(signature_b64)
-        
-        # Obtem o bloco completo de decriptação
         decrypted_full = rsa_decrypt(signature, e_val, n_val)
-        
-        # Usa os últimos 32 bytes como hash recuperado
         recovered_hash = decrypted_full[-32:]
         
         if recovered_hash == hash_bytes:
@@ -210,9 +181,6 @@ def verify_signature(file_path: str, username: str):
         return False
 
 def test_key_pair(e, d, n):
-    """
-    Testa se um par de chaves RSA está funcionando corretamente
-    """
     test_message = b"test"
     print("[DEBUG] Testando par de chaves...")
     
@@ -227,37 +195,22 @@ def test_key_pair(e, d, n):
         return False
     
 def generate_rsa_keys(username):
-    """
-    Gera um novo par de chaves RSA de 2048 bits
-    """
-    # Gera o par de chaves
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=2048
     )
     public_key = private_key.public_key()
     
-    # Extrai os componentes
     numbers = private_key.private_numbers()
     n = numbers.public_numbers.n
     e = numbers.public_numbers.e
     d = numbers.d
-    
-    # Salva a chave privada
+
     with open(os.path.join(keys_dir, f"{username}_private.pem"), "w") as f:
         f.write(f"{d},{n}")
-    
-    # Retorna a chave pública para salvar no banco
     return f"{e},{n}"
 
 def get_signers(file_path: str):
-    """
-    Retorna uma lista dos nomes dos usuários que assinaram o documento.
-    Cada bloco de assinatura é esperado no formato:
-        ---SIGNATURE---
-        <nome do usuário>
-        <assinatura em base64>
-    """
     try:
         with open(file_path, "r") as file:
             lines = file.readlines()
@@ -271,16 +224,14 @@ def get_signers(file_path: str):
         if lines[i].strip() == "---SIGNATURE---":
             if i+1 < len(lines):
                 signer = lines[i+1].strip()
-                # Adiciona somente se não estiver na lista (para evitar duplicatas)
                 if signer not in signers:
                     signers.append(signer)
-            i += 3  # pula o bloco (marcador, nome, assinatura)
+            i += 3
         else:
             i += 1
     return signers
 
 def debug_user_keys(username: str):
-    # Lê a chave privada do arquivo
     private_key_path = os.path.join(keys_dir, f"{username}_private.pem")
     if os.path.exists(private_key_path):
         with open(private_key_path, "r") as f:
@@ -294,7 +245,6 @@ def debug_user_keys(username: str):
     else:
         print(f"[DEBUG] Chave privada para {username} não encontrada.")
 
-    # Lê a chave pública do banco de dados
     import sqlite3
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
@@ -313,15 +263,10 @@ def debug_user_keys(username: str):
 
 
 def test_key_pair_for_user(username: str):
-    """
-    Testa o par de chaves RSA do usuário enviando uma mensagem de teste.
-    Retorna True se o processo (assinatura e verificação) funcionar corretamente.
-    """
     import os
     import sqlite3
     from config import keys_dir, db_path
 
-    # Lê a chave privada do usuário
     private_key_path = os.path.join(keys_dir, f"{username}_private.pem")
     if not os.path.exists(private_key_path):
         print("Chave privada não encontrada!")
@@ -334,7 +279,6 @@ def test_key_pair_for_user(username: str):
         print("Erro ao interpretar a chave privada:", e)
         return False
 
-    # Lê a chave pública do banco de dados
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -349,11 +293,8 @@ def test_key_pair_for_user(username: str):
         print("Erro ao ler a chave pública:", e)
         return False
 
-    # Mensagem de teste
     test_message = b"Test"
-    # Assinatura: assinatura = (test_message)^d mod n
     test_sig_int = pow(int.from_bytes(test_message, byteorder='big'), d, n)
-    # Recuperação: (assinatura)^e mod n
     recovered_int = pow(test_sig_int, e_val, n_val)
     k = (n_val.bit_length() + 7) // 8
     recovered_bytes = recovered_int.to_bytes(k, byteorder='big')[-len(test_message):]

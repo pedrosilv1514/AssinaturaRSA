@@ -3,6 +3,10 @@ from tkinter import messagebox, filedialog
 from auth import register_user, login_user
 from signature_test import sign_file, verify_signature
 from db_helpers import get_user_public_key
+from db import init_db
+
+init_db()
+
 
 def login():
     user = entry_user.get()
@@ -33,6 +37,7 @@ def open_main_window(user):
             else:
                 messagebox.showerror("Erro", message)
 
+
     def verify_document():
         file_path = filedialog.askopenfilename()
         if file_path:
@@ -53,7 +58,6 @@ def open_main_window(user):
     
     main_window.mainloop()
 
-# Criar tela de login
 login_window = tk.Tk()
 login_window.title("Login - Sistema RSA")
 

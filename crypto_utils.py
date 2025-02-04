@@ -1,65 +1,81 @@
-import os
 import random
+import math
+import os
 from config import keys_dir
 
-def is_prime(n, k=40):
-    if n < 2:
+def is_prime(n, k=5):
+    if n <= 1 or n == 4:
         return False
-    if n in (2, 3):
+    if n <= 3:
         return True
-    if n % 2 == 0:
-        return False
     
-    r, s = 0, n - 1
-    while s % 2 == 0:
+    d = n - 1
+    r = 0
+    while d % 2 == 0:
+        d //= 2
         r += 1
-        s //= 2
     
+    #Miller-Rabin
     for _ in range(k):
-        a = random.randint(2, n - 1)
-        x = pow(a, s, n)
+        a = random.randint(2, n - 2)
+        x = pow(a, d, n)
+        
         if x == 1 or x == n - 1:
             continue
+        
+        is_composite = True
         for _ in range(r - 1):
             x = pow(x, 2, n)
             if x == n - 1:
+                is_composite = False
                 break
-        else:
+        
+        if is_composite:
             return False
+    
     return True
 
-def generate_prime(bits=1024):
+def generate_prime(bits):
     while True:
-        p = random.getrandbits(bits) | (1 << (bits - 1)) | 1  # Garante que o número tem o número correto de bits e é ímpar
-        if is_prime(p):
-            return p
+        candidate = random.getrandbits(bits)
+        candidate |= (1 << bits - 1) | 1
+        
+        if is_prime(candidate):
+            return candidate
+
+def gcd(a, b):
+    while b != 0:
+        a, b = b, a % b
+    return a
 
 def mod_inverse(e, phi):
-    """Calcula o inverso modular de e mod phi usando o Algoritmo Estendido de Euclides"""
-    a, b = e, phi
-    x0, x1 = 1, 0
-    while b != 0:
-        q = a // b
-        a, b = b, a % b
-        x0, x1 = x1, x0 - q * x1
-    if a != 1:
-        raise ValueError("O inverso modular não existe")
-    return x0 % phi  # Garante que o valor esteja no intervalo correto
+    def egcd(a, b):
+        if a == 0:
+            return b, 0, 1
+        else:
+            gcd, x, y = egcd(b % a, a)
+            return gcd, y - (b // a) * x, x
 
-def generate_keys(username: str):
-    p = generate_prime()
-    q = generate_prime()
+    gcd, x, _ = egcd(e, phi)
+    if gcd != 1:
+        raise ValueError('Inverso modular não existe')
+    else:
+        return x % phi
+
+def generate_rsa_keys(username, key_size=2048):
+    p = generate_prime(key_size // 2)
+    q = generate_prime(key_size // 2)
     n = p * q
     phi = (p - 1) * (q - 1)
-    e = 65537  # Valor comum para a chave pública
+
+    e = 65537
+    while gcd(e, phi) != 1:
+        e = random.randint(3, phi - 1)
+    
     d = mod_inverse(e, phi)
-    
-    # Formata a chave privada em uma única linha sem espaços extras
-    private_key = f"{d},{n}"
-    public_key = f"{e},{n}"
-    
+
     private_key_path = os.path.join(keys_dir, f"{username}_private.pem")
-    with open(private_key_path, "w") as priv_file:
-        priv_file.write(private_key.strip())  # Garante que não haja quebras de linha ou espaços
-    
-    return public_key
+    with open(private_key_path, "w") as f:
+        f.write(f"{d},{n}")
+
+    return f"{e},{n}"
