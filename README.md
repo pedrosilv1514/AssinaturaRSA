@@ -7,3 +7,7 @@ Outro usuário pode carregar esse arquivo e a assinatura para verificar sua aute
 🔹 Fluxo:
 O usuário assina um arquivo TXT, e a assinatura é anexada ao final do arquivo.
 Outro usuário pode carregar o arquivo e a assinatura e verificar se o conteúdo foi alterado.
+
+
+## Dica do usuario privado
+cat ~/.rsa_keys/Pedro_private.pem
